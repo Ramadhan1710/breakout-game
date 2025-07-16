@@ -1,73 +1,38 @@
-🎮 Breakout Game
-A simple and fun Breakout-style game built using Flutter and Flame Engine!
-Smash bricks, bounce the ball, and challenge your reflexes in this retro arcade classic—reborn with Flutter power.
+# 🎮 Breakout Game
 
+> A simple and fun **Breakout-style game** built with **Flutter** and **Flame Engine**.
 
+Smash bricks, bounce the ball, and challenge your reflexes in this classic arcade remake—reborn with Flutter!
 
+![Flutter](https://img.shields.io/badge/Flutter-Game-blue?logo=flutter)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
 
-🚀 Features
-🎯 Classic breakout mechanics (ball, paddle, and bricks)
+---
 
-🔥 Collision detection and physics with Flame engine
+## ✨ Features
 
-📱 Responsive layout for multiple screen sizes
+- 🎯 Classic breakout mechanics (ball, paddle, bricks)
+- 🔥 Collision detection and physics with **Flame Engine**
+- 📱 Responsive layout for multiple screen sizes
+- 🎨 Customizable assets and themes
 
-🎨 Customizable assets and theme-ready
+---
 
-📷 Screenshots
-(Tambahkan screenshot gameplay kamu di sini)
+## 📸 Screenshots
 
-🛠️ Getting Started
-1. Clone this repository
-bash
-Salin
-Edit
+> Add your game screenshots here
+
+| Gameplay | Level Completed |
+| :------: | :-------------: |
+| ![Gameplay](link-to-your-screenshot1.png) | ![Level Completed](link-to-your-screenshot2.png) |
+
+---
+
+## 🚀 Getting Started
+
+### ✅ 1. Clone the repository
+
+```bash
 git clone https://github.com/your-username/breakout_game.git
 cd breakout_game
-2. Install dependencies
-bash
-Salin
-Edit
-flutter pub get
-3. Run the game
-bash
-Salin
-Edit
-flutter run
-📱 Make sure your emulator or physical device is connected.
-
-📦 Dependencies
-Package	Description
-Flame	Game engine for Flutter
-Flutter	UI toolkit
-
-🧱 Folder Structure
-bash
-Salin
-Edit
-lib/
-├── main.dart            # Entry point
-├── game/
-│   ├── breakout_game.dart
-│   ├── ball.dart
-│   ├── paddle.dart
-│   ├── brick.dart
-│   └── ...
-└── components/          # Reusable game components
-📖 Resources
-Flutter Docs
-
-Flame Engine Docs
-
-Awesome Flame
-
-🙌 Contributing
-Contributions are welcome!
-Feel free to fork this project and submit a pull request.
-
-📄 License
-This project is licensed under the MIT License.
-
-💡 Author
-Created with ❤️ by [Your Name or Username]
-📧 Contact: your.email@example.com
