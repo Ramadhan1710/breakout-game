@@ -1,61 +1,67 @@
 import 'package:flame/camera.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'dart:math' as math;
 
-import 'ball.dart';
-import 'brick.dart';
-import 'paddle.dart';
-import 'wall.dart';
+import '../controllers/game_controller.dart';
+import 'audio/game_audio_manager.dart';
+import 'component/ball.dart';
+import 'component/brick.dart';
+import 'component/paddle.dart';
+import 'particle/background_particle.dart';
 
 class BreakoutGame extends FlameGame with HasCollisionDetection {
   late Paddle paddle;
   late Ball ball;
-  late Brick brick;
-  late Wall wall;
+
+  final GameController controller;
+  final GameAudioManager audioManager = Get.find<GameAudioManager>();
 
   final List<BackgroundParticle> particles = [];
   final math.Random random = math.Random();
 
-  static const Color breakoutBackgroundColor = Color(0xFF0F0F23);
-  static const Color neonBlue = Color(0xFF00BFFF);
-  static const Color neonPink = Color(0xFFFF1493);
-  static const Color neonGreen = Color(0xFF00FF7F);
-  static const Color neonYellow = Color(0xFFFFD700);
-  static const Color neonPurple = Color(0xFF8A2BE2);
+  static const breakoutBackgroundColor = Color(0xFF0F0F23);
+  static const neonBlue = Color(0xFF00BFFF);
+  static const neonPink = Color(0xFFFF1493);
+  static const neonGreen = Color(0xFF00FF7F);
+  static const neonYellow = Color(0xFFFFD700);
+  static const neonPurple = Color(0xFF8A2BE2);
+
+  BreakoutGame({required this.controller});
 
   @override
   Future<void> onLoad() async {
-    debugPrint('Enhanced BreakoutGame Loaded!');
-
     camera.viewport = FixedResolutionViewport(resolution: size);
-
+    overlays.add('ScoreOverlay');
     _initializeParticles();
+    await loadGameComponents();
+    controller.isReady.value = true;
+  }
 
-    final screenWidth = size.x;
-    final screenHeight = size.y;
+  Future<void> resetGame() async {
+    controller.resetGame();
 
-    paddle = Paddle(
-      position: Vector2(screenWidth / 2 - 60, screenHeight - 40),
-      size: Vector2(screenWidth * 0.3, 25),
-      paint: Paint()
-        ..color = neonBlue
-        ..style = PaintingStyle.fill,
+    final removableComponents = children
+        .where((c) => c is Ball || c is Paddle || c is Brick)
+        .toList();
+
+    await Future.wait(
+      removableComponents.map((c) async => c.removeFromParent()),
     );
 
-    add(paddle);
+    overlays.remove('GameOverOverlay');
+    overlays.remove('GameWinOverlay');
 
-    ball = Ball(
-      position: Vector2(screenWidth / 2, screenHeight / 2),
-      radius: screenWidth * 0.03,
-      paint: Paint()
-        ..color = neonPink
-        ..style = PaintingStyle.fill,
-    );
+    await loadGameComponents();
+    resumeEngine();
+  }
 
-    add(ball);
-
-    _createEnhancedBricks(screenWidth, screenHeight);
+  void exitGame() {
+    controller.resetGame();
+    overlays.remove('GameOverOverlay');
+    overlays.remove('GameWinOverlay');
+    Get.offAndToNamed('/start');
   }
 
   void _initializeParticles() {
@@ -83,14 +89,20 @@ class BreakoutGame extends FlameGame with HasCollisionDetection {
     }
   }
 
-  void _createEnhancedBricks(double screenWidth, double screenHeight) {
+  Future<void> _createEnhancedBricks(
+    double screenWidth,
+    double screenHeight,
+    double levelFactor,
+  ) async {
     final brickWidth = screenWidth / 11;
-    final brickHeight = 30.0;
+    const brickHeight = 30.0;
     final gap = brickWidth * 0.1;
-    final columns = 10;
-    final rows = 6;
+    const columns = 5;
+    int rows = 2 + (controller.currentLevel.value - 1);
+    if (rows > 6) rows = 6;
+
     final startX = (screenWidth - ((brickWidth + gap) * columns - gap)) / 2;
-    final startY = 60.0;
+    const startY = 60.0;
 
     final colors = [
       neonPurple,
@@ -101,11 +113,10 @@ class BreakoutGame extends FlameGame with HasCollisionDetection {
       Colors.orange,
     ];
 
-    for (var row = 0; row < rows; row++) {
-      for (var col = 0; col < columns; col++) {
+    for (int row = 0; row < rows; row++) {
+      for (int col = 0; col < columns; col++) {
         final x = startX + col * (brickWidth + gap);
         final y = startY + row * (brickHeight + gap);
-
         final baseColor = colors[row % colors.length];
         final brickColor = Color.lerp(
           baseColor,
@@ -114,17 +125,50 @@ class BreakoutGame extends FlameGame with HasCollisionDetection {
         )!;
 
         final brick = Brick(
+          audioManager: audioManager,
+          controller: controller,
           position: Vector2(x, y),
           size: Vector2(brickWidth, brickHeight),
-          paint: Paint()
-            ..color = brickColor
-            ..style = PaintingStyle.fill,
+          paint: Paint()..color = brickColor,
           brickColor: brickColor,
         );
-
-        add(brick);
+        await add(brick);
       }
     }
+  }
+
+  Future<void> nextLevel() async {
+    if (controller.currentLevel.value < controller.maxLevel.value) {
+      controller.increaseLevel();
+      controller.isLoadingLevel.value = true;
+      controller.resetForNextLevel();
+
+      final removable = children
+          .where((c) => c is Ball || c is Paddle || c is Brick)
+          .toList();
+      await Future.wait(removable.map((c) async => c.removeFromParent()));
+
+      await loadGameComponents();
+
+      overlays.add('NextLevelOverlay'); // Munculkan overlay naik level
+      pauseEngine();
+
+      controller.isLoadingLevel.value = false;
+    } else {
+      _handleGameWin();
+    }
+  }
+
+  void _handleGameOver() {
+    pauseEngine();
+    audioManager.gameOverAudioPool.start();
+    overlays.add('GameOverOverlay');
+  }
+
+  void _handleGameWin() {
+    pauseEngine();
+    audioManager.gameWinAudioPool.start();
+    overlays.add('GameWinOverlay');
   }
 
   @override
@@ -133,6 +177,23 @@ class BreakoutGame extends FlameGame with HasCollisionDetection {
 
     for (final particle in particles) {
       particle.update(dt, size);
+    }
+
+    final bricks = children.whereType<Brick>().toList();
+
+    if (!controller.isLoadingLevel.value &&
+        !controller.isGameOver.value &&
+        !controller.isGameWin.value &&
+        bricks.isEmpty) {
+      nextLevel();
+    }
+
+    if (controller.isGameOver.value && !overlays.isActive('GameOverOverlay')) {
+      _handleGameOver();
+    }
+
+    if (controller.isGameWin.value && !overlays.isActive('GameWinOverlay')) {
+      _handleGameWin();
     }
   }
 
@@ -145,20 +206,46 @@ class BreakoutGame extends FlameGame with HasCollisionDetection {
     }
 
     _drawGlowEffects(canvas);
-
     super.render(canvas);
+  }
+
+  Future<void> loadGameComponents() async {
+    final screenWidth = size.x;
+    final screenHeight = size.y;
+    final levelFactor = 1.0 + (controller.currentLevel.value - 1) * 0.25;
+
+    paddle = Paddle(
+      controller: controller,
+      position: Vector2(screenWidth / 2 - 60, screenHeight - 40),
+      size: Vector2(screenWidth * 0.3 / levelFactor, 25),
+      paint: Paint()..color = neonBlue,
+    );
+    await add(paddle);
+
+    ball = Ball(
+      audioManager: audioManager,
+      controller: controller,
+      position: Vector2(screenWidth / 2, screenHeight / 2),
+      radius: screenWidth * 0.03,
+      paint: Paint()..color = neonPink,
+      speedMultiplier: 1.0 * levelFactor,
+    );
+    await add(ball);
+
+    await _createEnhancedBricks(screenWidth, screenHeight, levelFactor);
+
+    ball.resetVelocity();
   }
 
   void _drawAnimatedBackground(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
-
     final gradient = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
         breakoutBackgroundColor,
         breakoutBackgroundColor.withOpacity(0.8),
-        Color(0xFF1A1A3A),
+        const Color(0xFF1A1A3A),
       ],
       stops: const [0.0, 0.5, 1.0],
     );
@@ -168,15 +255,13 @@ class BreakoutGame extends FlameGame with HasCollisionDetection {
       ..style = PaintingStyle.fill;
 
     canvas.drawRect(rect, paint);
-
     _drawGrid(canvas);
   }
 
   void _drawGrid(Canvas canvas) {
     final paint = Paint()
       ..color = neonBlue.withOpacity(0.1)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
+      ..strokeWidth = 1.0;
 
     const gridSize = 40.0;
 
@@ -198,39 +283,5 @@ class BreakoutGame extends FlameGame with HasCollisionDetection {
 
     final gameRect = Rect.fromLTWH(20, 20, size.x - 40, size.y - 40);
     canvas.drawRect(gameRect, glowPaint);
-  }
-}
-
-class BackgroundParticle {
-  Vector2 position;
-  Vector2 velocity;
-  Color color;
-  double size;
-  double opacity = 1.0;
-
-  BackgroundParticle({
-    required this.position,
-    required this.velocity,
-    required this.color,
-    required this.size,
-  });
-
-  void update(double dt, Vector2 gameSize) {
-    position += velocity * dt;
-
-    if (position.x < 0) position.x = gameSize.x;
-    if (position.x > gameSize.x) position.x = 0;
-    if (position.y < 0) position.y = gameSize.y;
-    if (position.y > gameSize.y) position.y = 0;
-
-    opacity = (math.sin(DateTime.now().millisecondsSinceEpoch * 0.002) + 1) / 2;
-  }
-
-  void render(Canvas canvas) {
-    final paint = Paint()
-      ..color = color.withOpacity(opacity * 0.6)
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(Offset(position.x, position.y), size, paint);
   }
 }

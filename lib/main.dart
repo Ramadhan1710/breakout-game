@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'di/dependency_injection.dart';
 import 'routes/app_routes.dart';
 import 'routes/app_pages.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await setupDependencies();
+
   runApp(MyGameApp());
 }
 
